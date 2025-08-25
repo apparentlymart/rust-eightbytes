@@ -1,6 +1,9 @@
 [package]
+description = "SIMD-like (SWAR) operations on vectors of eight bytes without using native SIMD instructions."
 edition = "2024"
+license = "MIT"
 name = "eight_bytes"
+repository = "https://github.com/apparentlymart/rust-eightbytes"
 version = "0.1.0"
 
 [dependencies]

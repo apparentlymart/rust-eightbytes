@@ -9,6 +9,9 @@
 //! The API is designed to loosely follow the conventions of the Rust standard
 //! library's portable SIMD module, but only to a limited extent. There is no
 //! explicit interop between the two.
+//!
+//! This library is `no_std`-compatible and intended for CPU architectures that
+//! can perform arithmetic operations efficiently on 64-bit values.
 #![cfg_attr(not(test), no_std)]
 
 #[path = "mask8x8.rs"]
