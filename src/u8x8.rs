@@ -3,22 +3,109 @@ use crate::mask8x8;
 /// A vector of eight `u8` values, which can have SIMD-like operations applied
 /// to them without any explicit SIMD instructions.
 ///
-/// This type is really just a u64, but its methods interpret it as eight `u8`
-/// values where the same operation is applied to all eight values at once.
+/// This type is really just a [`u64`], but its methods interpret it as eight
+/// [`u8`] values where the same operation is applied to all eight values at
+/// once.
 #[allow(non_camel_case_types)]
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct u8x8 {
-    n: u64,
+    pub(crate) n: u64,
 }
 
 impl u8x8 {
+    /// A [`u8x8`] value where all eight elements are set to zero.
+    pub const ZEROES: Self = Self::new(0);
+
     /// Converts an array of eight `u8` values into a [`u8x8`] value.
     #[inline(always)]
     pub const fn from_array(a: [u8; 8]) -> Self {
         Self {
             n: u64::from_ne_bytes(a),
         }
+    }
+
+    /// Reinterprets the given byte slice as a slice of [`u8x8`], along with
+    /// individual leading and trailing bytes that are not aligned for
+    /// interpretation as `u64`.
+    ///
+    /// This is a useful primitive for analyzing all bytes in a slice more
+    /// efficiently than visiting each byte separately. The following example
+    /// counts the number of non-space characters in a byte string:
+    ///
+    /// ```rust
+    /// # use eight_bytes::{u8x8, mask8x8};
+    /// // (in practice this could only be productive with a much larger
+    /// // input than this, but this is just for example.)
+    /// let input = b"The quick brown fox jumps over the lazy dog.";
+    /// let (start, middle, end) = u8x8::from_byte_slice(input);
+    /// const SPACE: u8 = b' ' ;
+    /// let space = u8x8::splat(SPACE); // vector of eight spaces
+    /// let mut non_space_count = 0;
+    ///
+    /// // Deal with up to seven leading scalar bytes...
+    /// for b in start {
+    ///     if *b != SPACE {
+    ///         non_space_count += 1;
+    ///     }
+    /// }
+    /// // First visit vectors of eight bytes at a time...
+    /// for v in middle {
+    ///     let space_mask = v.equals(space); // returns vector of boolean values
+    ///     non_space_count += space_mask.not().count_true();
+    /// }
+    /// // ...then deal with up to seven scalar stragglers.
+    /// for b in end {
+    ///     if *b != SPACE {
+    ///         non_space_count += 1;
+    ///     }
+    /// }
+    /// assert_eq!(non_space_count, 36);
+    /// ```
+    #[inline(always)]
+    pub fn from_byte_slice<'a>(s: &'a [u8]) -> (&'a [u8], &'a [Self], &'a [u8]) {
+        const ALIGN: usize = core::mem::align_of::<u8x8>();
+        let addr = s.as_ptr().cast::<u8>() as usize;
+        let prior_count = core::cmp::min(addr.next_multiple_of(ALIGN) - addr, s.len());
+        let (prior, remain) = s.split_at(prior_count);
+        if remain.is_empty() {
+            let empty = unsafe { core::slice::from_raw_parts(core::ptr::dangling::<Self>(), 0) };
+            return (prior, empty, remain);
+        }
+        let s = remain; // now guaranteed to be correctly aligned for u64
+        let u8x8_len = s.len() / 8;
+        let use_len = u8x8_len * 8;
+        let (for_u8u8, remain) = s.split_at(use_len);
+        let ptr = for_u8u8.as_ptr().cast::<Self>();
+        let u8x8s = unsafe { core::slice::from_raw_parts(ptr, u8x8_len) };
+        (prior, u8x8s, remain)
+    }
+
+    /// Reinterprets the given byte slice as a slice of [`u8x8`], along with
+    /// individual leading and trailing bytes that are not aligned for
+    /// interpretation as `u64`.
+    ///
+    /// This is a mutable version of [`Self::from_byte_slice`].
+    #[inline(always)]
+    pub fn from_byte_slice_mut<'a>(
+        s: &'a mut [u8],
+    ) -> (&'a mut [u8], &'a mut [Self], &'a mut [u8]) {
+        const ALIGN: usize = core::mem::align_of::<u8x8>();
+        let addr = s.as_ptr().cast::<u8>() as usize;
+        let prior_count = core::cmp::min(addr.next_multiple_of(ALIGN) - addr, s.len());
+        let (prior, remain) = s.split_at_mut(prior_count);
+        if remain.is_empty() {
+            let empty =
+                unsafe { core::slice::from_raw_parts_mut(core::ptr::dangling_mut::<Self>(), 0) };
+            return (prior, empty, remain);
+        }
+        let s = remain; // now guaranteed to be correctly aligned for u64
+        let u8x8_len = s.len() / 8;
+        let use_len = u8x8_len * 8;
+        let (for_u8u8, remain) = s.split_at_mut(use_len);
+        let ptr = for_u8u8.as_mut_ptr().cast::<Self>();
+        let u8x8s = unsafe { core::slice::from_raw_parts_mut(ptr, u8x8_len) };
+        (prior, u8x8s, remain)
     }
 
     #[inline(always)]
@@ -74,6 +161,34 @@ impl u8x8 {
         mask8x8::new(hi >> 7)
     }
 
+    /// Compares each element across both vectors and returns a mask value
+    /// with elements set to `true` where the corresponding element in `self`
+    /// is less than the corresponding element in `other`.
+    #[inline(always)]
+    pub const fn less_than(self, other: Self) -> mask8x8 {
+        let diff = (self.n | ONLY_HIGH_BITS).wrapping_sub(other.n & !ONLY_HIGH_BITS);
+        let select =
+            ((self.n & (self.n ^ other.n)) | (diff & !(self.n ^ other.n))) & ONLY_HIGH_BITS;
+        let inv = select ^ ONLY_HIGH_BITS;
+        // inv now has the msb set in each element that was equal,
+        // but our mask representation wants lsb set so we'll shift.
+        mask8x8::new(inv >> 7)
+    }
+
+    /// Compares each element across both vectors and returns a mask value
+    /// with elements set to `true` where the corresponding element in `self`
+    /// is less than the corresponding element in `other`.
+    #[inline(always)]
+    pub const fn greater_than(self, other: Self) -> mask8x8 {
+        let diff = (other.n | ONLY_HIGH_BITS).wrapping_sub(self.n & !ONLY_HIGH_BITS);
+        let select =
+            ((other.n & (other.n ^ self.n)) | (diff & !(other.n ^ self.n))) & ONLY_HIGH_BITS;
+        let inv = select ^ ONLY_HIGH_BITS;
+        // inv now has the msb set in each element that was equal,
+        // but our mask representation wants lsb set so we'll shift.
+        mask8x8::new(inv >> 7)
+    }
+
     /// Implements addition across corresponding elements, modulo 256.
     #[inline(always)]
     pub const fn wrapping_add(self, other: Self) -> Self {
@@ -108,6 +223,19 @@ impl u8x8 {
         Self::new(diff & !msb_mask(borrow))
     }
 
+    /// Computes the absolute difference between corresponding elements.
+    #[inline(always)]
+    pub const fn abs_difference(self, other: Self) -> Self {
+        let diff = self.n.wrapping_sub(other.n);
+        let borrow = ((!self.n & other.n) | ((!self.n | other.n) & diff)) & ONLY_HIGH_BITS;
+        let msb_mask = msb_mask(borrow);
+        let lo = (self.n & !msb_mask) | (other.n & msb_mask);
+        let hi = (self.n & msb_mask) | (other.n & !msb_mask);
+        Self::new(
+            ((lo | ONLY_HIGH_BITS) - (hi & WITHOUT_HIGH_BITS)) ^ ((lo ^ !hi) & ONLY_HIGH_BITS),
+        )
+    }
+
     /// Finds the maximum value for each element across both vectors.
     #[inline(always)]
     pub const fn max(self, other: Self) -> Self {
@@ -124,6 +252,24 @@ impl u8x8 {
         let borrow = ((!self.n & other.n) | ((!self.n | other.n) & diff)) & ONLY_HIGH_BITS;
         let msb_mask = msb_mask(borrow);
         Self::new((self.n & msb_mask) | (other.n & !msb_mask))
+    }
+
+    /// Finds the integer mean value for each element across both vectors.
+    ///
+    /// This is conceptually the same as (self + other)/2, computed without overflow.
+    #[inline(always)]
+    pub const fn mean(self, other: Self) -> Self {
+        let shared = self.n & other.n;
+        let diff = (self.n ^ other.n) & 0xfefefefefefefefe;
+        Self::new(shared + (diff >> 1))
+    }
+
+    /// Counts the number of bits set in each element.
+    #[inline(always)]
+    pub const fn popcount(self) -> Self {
+        let a = self.n - ((self.n >> 1) & 0x5555555555555555);
+        let b = (a & 0x3333333333333333).wrapping_add((a >> 2) & 0x3333333333333333);
+        Self::new((b + (b >> 4)) & 0x0f0f0f0f0f0f0f0f)
     }
 }
 
@@ -217,6 +363,16 @@ impl core::ops::SubAssign for u8x8 {
     #[inline(always)]
     fn sub_assign(&mut self, rhs: Self) {
         *self = self.wrapping_sub(rhs);
+    }
+}
+
+impl IntoIterator for u8x8 {
+    type Item = u8;
+    type IntoIter = core::array::IntoIter<u8, 8>;
+
+    #[inline(always)]
+    fn into_iter(self) -> Self::IntoIter {
+        self.to_array().into_iter()
     }
 }
 

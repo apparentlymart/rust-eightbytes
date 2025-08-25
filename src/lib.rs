@@ -1,7 +1,10 @@
 //! Implements "SIMD-like" operations over vectors of eight `u8` values
-//! represented internally as single `u64` values, using bit-fidding tricks.
+//! represented internally as single `u64` values, using bit-fidding tricks
+//! to perform the same operation on all eight bytes at once.
 //!
-//! These techniques are sometimes described as "SWAR": SIMD within a register.
+//! These techniques are sometimes described as _[SWAR](https://en.m.wikipedia.org/wiki/SWAR)_ (SIMD within a register).
+//! However, that term can also sometimes refer to the use of a CPU
+//! architecture's specialized SIMD instructions.
 //!
 //! The API is designed to loosely follow the conventions of the Rust standard
 //! library's portable SIMD module, but only to a limited extent. There is no
