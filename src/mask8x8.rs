@@ -155,7 +155,19 @@ impl mask8x8 {
     /// Returns the number of elements in the mask that are set to `true`.
     #[inline(always)]
     pub const fn count_true(self) -> u32 {
-        self.n.count_ones()
+        // This is the usual "tree-based" popcount, but starting partway
+        // though the process because our starting state is that we already
+        // know the popcount for each 8-bit segment, which will either be
+        // zero or one.
+        const ALT_8S: u64 = 0x00ff00ff00ff00ff;
+        const ALT_16S: u64 = 0x0000ffff0000ffff;
+        const ALT_32S: u64 = 0x00000000ffffffff;
+
+        let mut raw = self.n;
+        raw = (raw & ALT_8S) + ((raw >> 8) & ALT_8S);
+        raw = (raw & ALT_16S) + ((raw >> 16) & ALT_16S);
+        raw = (raw & ALT_32S) + ((raw >> 32) & ALT_32S);
+        raw as u32
     }
 
     /// Returns the number of elements in the mask that are set to `false`.
