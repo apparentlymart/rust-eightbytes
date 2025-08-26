@@ -46,6 +46,12 @@ pub fn saturating_add() {
 }
 
 #[test]
+pub fn collect_sum() {
+    let values = u8x8::from_array([1, 2, 3, 4, 255, 128, 0, 9]);
+    assert_eq!(values.collect_sum(), 402);
+}
+
+#[test]
 pub fn wrapping_sub() {
     let a = u8x8::from_array([6, 8, 10, 12, 1, 0, 5, 2]);
     let b = u8x8::from_array([1, 2, 3, 4, 255, 254, 0, 0]);

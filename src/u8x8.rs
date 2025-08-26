@@ -205,6 +205,25 @@ impl u8x8 {
         Self::new(sum | msb_mask(carry))
     }
 
+    /// Returns the sum of all of the elements in the vector togther.
+    ///
+    /// Because the maximum value of each element is 255, the maximum value
+    /// of the result is 255*8=2040, but the return type is `u64` just for
+    /// consistency with this type's general assumption that u64 is the
+    /// system's primary integer size.
+    #[inline(always)]
+    pub const fn collect_sum(self) -> u64 {
+        const ALT_8S: u64 = 0x00ff00ff00ff00ff;
+        const ALT_16S: u64 = 0x0000ffff0000ffff;
+        const ALT_32S: u64 = 0x00000000ffffffff;
+
+        let mut raw = self.n;
+        raw = (raw & ALT_8S) + ((raw >> 8) & ALT_8S);
+        raw = (raw & ALT_16S) + ((raw >> 16) & ALT_16S);
+        raw = (raw & ALT_32S) + ((raw >> 32) & ALT_32S);
+        raw
+    }
+
     /// Implements subtraction across corresponding elements, modulo 256.
     #[inline(always)]
     pub const fn wrapping_sub(self, other: Self) -> Self {
