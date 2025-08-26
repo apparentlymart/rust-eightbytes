@@ -359,11 +359,29 @@ impl core::ops::Add for u8x8 {
     }
 }
 
+impl core::ops::Add<u8> for u8x8 {
+    type Output = Self;
+
+    /// Implements the `+` operator using [`Self::wrapping_add`].
+    #[inline(always)]
+    fn add(self, rhs: u8) -> Self {
+        self.wrapping_add(Self::splat(rhs))
+    }
+}
+
 impl core::ops::AddAssign for u8x8 {
     /// Implements the `+=` operator using [`Self::wrapping_add`].
     #[inline(always)]
     fn add_assign(&mut self, rhs: Self) {
         *self = self.wrapping_add(rhs);
+    }
+}
+
+impl core::ops::AddAssign<u8> for u8x8 {
+    /// Implements the `+=` operator using [`Self::wrapping_add`].
+    #[inline(always)]
+    fn add_assign(&mut self, rhs: u8) {
+        *self = self.wrapping_add(Self::splat(rhs));
     }
 }
 
@@ -377,11 +395,29 @@ impl core::ops::Sub for u8x8 {
     }
 }
 
+impl core::ops::Sub<u8> for u8x8 {
+    type Output = Self;
+
+    /// Implements the `-` operator using [`Self::wrapping_sub`].
+    #[inline(always)]
+    fn sub(self, rhs: u8) -> Self {
+        self.wrapping_sub(Self::splat(rhs))
+    }
+}
+
 impl core::ops::SubAssign for u8x8 {
     /// Implements the `-=` operator using [`Self::wrapping_sub`].
     #[inline(always)]
     fn sub_assign(&mut self, rhs: Self) {
         *self = self.wrapping_sub(rhs);
+    }
+}
+
+impl core::ops::SubAssign<u8> for u8x8 {
+    /// Implements the `-=` operator using [`Self::wrapping_sub`].
+    #[inline(always)]
+    fn sub_assign(&mut self, rhs: u8) {
+        *self = self.wrapping_sub(Self::splat(rhs));
     }
 }
 
@@ -397,7 +433,7 @@ impl IntoIterator for u8x8 {
 
 impl core::fmt::Debug for u8x8 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "u8x8({:?})", self.to_array())
+        f.debug_tuple("u8x8").field(&self.to_array()).finish()
     }
 }
 

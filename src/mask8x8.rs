@@ -110,6 +110,13 @@ impl mask8x8 {
         u8x8::new(self.n)
     }
 
+    /// Returns a [`u8x8`] representation of the mask where true elements
+    /// are represented as `v` and false elements are represented as `0x00`.
+    #[inline(always)]
+    pub const fn to_u8x8_with(self, v: u8) -> u8x8 {
+        u8x8::new(u8x8::new(self.n).n * u8x8::splat(v).n)
+    }
+
     /// Computes the complement of each element in the vector.
     #[inline(always)]
     pub const fn not(self) -> Self {
@@ -167,7 +174,7 @@ impl mask8x8 {
 
 impl core::fmt::Debug for mask8x8 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "mask8x8({:?})", self.to_array())
+        f.debug_tuple("mask8x8").field(&self.to_array()).finish()
     }
 }
 
