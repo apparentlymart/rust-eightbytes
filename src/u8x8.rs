@@ -212,7 +212,7 @@ impl u8x8 {
     /// consistency with this type's general assumption that u64 is the
     /// system's primary integer size.
     #[inline(always)]
-    pub const fn collect_sum(self) -> u64 {
+    pub const fn reduce_sum(self) -> u64 {
         const ALT_8S: u64 = 0x00ff00ff00ff00ff;
         const ALT_16S: u64 = 0x0000ffff0000ffff;
         const ALT_32S: u64 = 0x00000000ffffffff;

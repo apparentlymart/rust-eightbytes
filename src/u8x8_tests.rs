@@ -48,7 +48,7 @@ pub fn saturating_add() {
 #[test]
 pub fn collect_sum() {
     let values = u8x8::from_array([1, 2, 3, 4, 255, 128, 0, 9]);
-    assert_eq!(values.collect_sum(), 402);
+    assert_eq!(values.reduce_sum(), 402);
 }
 
 #[test]

@@ -162,7 +162,7 @@ impl mask8x8 {
     /// Returns the number of elements in the mask that are set to `true`.
     #[inline(always)]
     pub const fn count_true(self) -> u32 {
-        self.to_u8x8().collect_sum() as u32
+        self.to_u8x8().reduce_sum() as u32
     }
 
     /// Returns the number of elements in the mask that are set to `false`.
