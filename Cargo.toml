@@ -4,6 +4,6 @@ edition = "2024"
 license = "MIT"
 name = "eight_bytes"
 repository = "https://github.com/apparentlymart/rust-eightbytes"
-version = "0.1.2"
+version = "0.2.0"
 
 [dependencies]
